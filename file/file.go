@@ -184,12 +184,12 @@ func (p *fileStreamProcessor) Seek(offset int64, whence int) (int64, error) {
 	return p.position, err
 }
 
-// Metadata 获取元数据
-func (p *fileStreamProcessor) Metadata() *metaflow.StreamMetadata {
+// GetMetadata 获取元数据
+func (p *fileStreamProcessor) GetMetadata() *metaflow.StreamMetadata {
 	return p.metadata
 }
 
-// CalculateChecksum 计算流的校验和
+// Checksum 计算流的校验和
 func (p *fileStreamProcessor) Checksum() (string, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -223,6 +223,51 @@ func (p *fileStreamProcessor) Checksum() (string, error) {
 
 	// 恢复到之前的位置
 	p.file.Seek(curPos, io.SeekStart)
+
+	return checksum, nil
+}
+
+func (p *fileStreamProcessor) PartialChecksum(offset, limit int64) (string, error) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	if p.closed {
+		return "", io.ErrClosedPipe
+	}
+
+	if offset < 0 || limit <= 0 {
+		return "", fmt.Errorf("无效的偏移量或限制: offset=%d, limit=%d", offset, limit)
+	}
+
+	// 保存当前位置
+	curPos, err := p.file.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return "", err
+	}
+
+	// 定位到指定偏移量
+	_, err = p.file.Seek(offset, io.SeekStart)
+	if err != nil {
+		return "", err
+	}
+
+	// 计算SHA-256校验和
+	hash := sha256.New()
+	n, err := io.CopyN(hash, p.file, limit)
+	if err != nil && err != io.EOF {
+		// 恢复位置
+		p.file.Seek(curPos, io.SeekStart)
+		return "", err
+	}
+
+	checksum := hex.EncodeToString(hash.Sum(nil))
+
+	// 恢复到之前的位置
+	p.file.Seek(curPos, io.SeekStart)
+
+	if n < limit {
+		return checksum, fmt.Errorf("读取的字节数少于限制: %d < %d", n, limit)
+	}
 
 	return checksum, nil
 }

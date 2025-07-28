@@ -22,8 +22,8 @@ type Stream interface {
 	io.Closer
 	io.Seeker
 
-	Metadata() *StreamMetadata // 获取元数据
-	Checksum() (string, error) // 计算内容校验和
-	// PartialChecksum(offset, limit int64) (string, error) // 计算内容校验和
-	IsReadOnly() bool // 判断是否为只读流
+	GetMetadata() *StreamMetadata                        // 获取元数据
+	Checksum() (string, error)                           // 计算内容校验和
+	PartialChecksum(offset, limit int64) (string, error) // 计算内容校验和
+	IsReadOnly() bool                                    // 判断是否为只读流
 }

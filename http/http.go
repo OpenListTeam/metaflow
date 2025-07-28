@@ -294,12 +294,12 @@ func (p *httpStreamProcessor) Seek(offset int64, whence int) (int64, error) {
 	return p.position, err
 }
 
-// Metadata 获取元数据
-func (p *httpStreamProcessor) Metadata() *metaflow.StreamMetadata {
+// GetMetadata 返回流的元数据
+func (p *httpStreamProcessor) GetMetadata() *metaflow.StreamMetadata {
 	return p.metadata
 }
 
-// CalculateChecksum 计算流的校验和
+// Checksum 返回流的校验和
 func (p *httpStreamProcessor) Checksum() (string, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -351,6 +351,52 @@ func (p *httpStreamProcessor) Checksum() (string, error) {
 	}
 
 	return "", fmt.Errorf("无法计算校验和")
+}
+
+// PartialChecksum 计算部分内容的校验和
+func (p *httpStreamProcessor) PartialChecksum(offset, limit int64) (string, error) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	if p.closed {
+		return "", io.ErrClosedPipe
+	}
+
+	if offset < 0 || limit <= 0 {
+		return "", fmt.Errorf("无效的偏移量或限制: offset=%d, limit=%d", offset, limit)
+	}
+
+	// 保存当前位置
+	curPos, err := p.seekable.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return "", err
+	}
+
+	// 定位到指定偏移量
+	_, err = p.seekable.Seek(offset, io.SeekStart)
+	if err != nil {
+		return "", err
+	}
+
+	// 读取指定长度的数据
+	data := make([]byte, limit)
+	n, err := p.reader.Read(data)
+	if err != nil && err != io.EOF {
+		return "", err
+	}
+
+	// 恢复到之前的位置
+	p.seekable.Seek(curPos, io.SeekStart)
+
+	if n < int(limit) {
+		data = data[:n] // 截断到实际读取的长度
+	}
+
+	// 计算SHA-256校验和
+	hash := sha256.New()
+	hash.Write(data)
+
+	return hex.EncodeToString(hash.Sum(nil)), nil
 }
 
 // IsReadOnly 判断流是否为只读
