@@ -23,7 +23,7 @@ type fileStreamProcessor struct {
 }
 
 func init() {
-	metaflow.RegsitryFactoryBuilder("file", func(meta *metaflow.StreamMetadata) (metaflow.Stream, error) {
+	metaflow.RegisterFactoryBuilder("file", func(meta *metaflow.StreamMetadata) (metaflow.Stream, error) {
 		return newFileStreamProcessor(meta)
 	})
 }

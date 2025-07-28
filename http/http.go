@@ -32,8 +32,8 @@ func init() {
 	httpStreamCreator := func(meta *metaflow.StreamMetadata) (metaflow.Stream, error) {
 		return newHTTPStreamProcessor(meta)
 	}
-	metaflow.RegsitryFactoryBuilder("http", httpStreamCreator)
-	metaflow.RegsitryFactoryBuilder("https", httpStreamCreator)
+	metaflow.RegisterFactoryBuilder("http", httpStreamCreator)
+	metaflow.RegisterFactoryBuilder("https", httpStreamCreator)
 }
 
 // 创建新的HTTP流处理器

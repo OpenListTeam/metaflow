@@ -24,7 +24,7 @@ func CreateStream(metadata *StreamMetadata) (Stream, error) {
 	}
 }
 
-func RegsitryFactoryBuilder(schema string, creator CreateFunc) error {
+func RegisterFactoryBuilder(schema string, creator CreateFunc) error {
 	if _, ok := _streamFactoryBuilder[schema]; ok {
 		return fmt.Errorf("duplicate factory constructor found: %s", schema)
 	}
