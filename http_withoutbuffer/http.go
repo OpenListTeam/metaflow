@@ -179,6 +179,20 @@ func (p *httpStreamProcessor) Close() error {
 			return fmt.Errorf("重置文件指针失败: %w", err)
 		}
 
+		// 计算校验和（在请求前进行，避免文件被HTTP客户端关闭）
+		hash := sha256.New()
+		// 创建文件副本用于计算哈希，避免影响后续操作
+		if _, err = io.Copy(hash, tmpFile); err != nil {
+			return fmt.Errorf("计算校验和失败: %w", err)
+		}
+		p.metadata.Checksum = hex.EncodeToString(hash.Sum(nil))
+
+		// 重置文件指针到开始位置（为HTTP请求做准备）
+		_, err = tmpFile.Seek(0, io.SeekStart)
+		if err != nil {
+			return fmt.Errorf("重置文件指针失败: %w", err)
+		}
+
 		// 创建请求
 		req, err := http.NewRequest(p.method, p.metadata.URL, tmpFile)
 		if err != nil {
@@ -201,17 +215,6 @@ func (p *httpStreamProcessor) Close() error {
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 			return fmt.Errorf("HTTP请求失败: %s", resp.Status)
 		}
-
-		// 计算校验和
-		_, err = tmpFile.Seek(0, io.SeekStart)
-		if err != nil {
-			return fmt.Errorf("重置文件指针失败: %w", err)
-		}
-		hash := sha256.New()
-		if _, err = io.Copy(hash, tmpFile); err != nil {
-			return fmt.Errorf("计算校验和失败: %w", err)
-		}
-		p.metadata.Checksum = hex.EncodeToString(hash.Sum(nil))
 
 		// 关闭并删除临时文件
 		tmpFile.Close()
